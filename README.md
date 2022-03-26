@@ -15,8 +15,13 @@ build.psi is just and example from a project of mine!
 
 #### 2nd step: Write your own .psi
 
-PSI scripts should look like this:
-```console
+PSI scripts should have this first line:
+```
+#!./build.py
+```
+
+Here is a quick demonstration:
+```python
 #!./build.py
 
 if you_are_ready:

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+import math
 import shutil
 import difflib
 import subprocess
@@ -61,7 +62,7 @@ def mkdir(arg):
         return os.mkdir(arg)
 
 def arg(i):
-        i += 1 # compensate for this scripts args
+        i += 1
         if len(sys.argv) > i:
             return sys.argv[i]
 
@@ -70,9 +71,27 @@ def get_line_indent(line):
                 if line[i] not in (" ", "\t"):
                         return i // 4 # python convention is 4 spaces?
 
+def print_error(msg):
+    print(f"\x1b[31m{msg}\x1b[0m")
+
+def print_success(msg):
+    print(f"\x1b[32m{msg}\x1b[0m")
+
 preprocessed_code = []
 
-with open(sys.argv[1], "r") as f:
+script_dir = os.path.dirname(os.path.realpath(__file__)).replace("\\", "/")
+sh_shells = ("/bin/zsh", "/bin/bash")
+
+def print_numbered_lines(code):
+    lines = code.split("\n")
+    number_space = int(math.log10(len(lines))) + 1
+    for line_i in range(len(lines)):
+        print(f"\x1b[33m{line_i + 1:<{number_space}}\x1b[0m {lines[line_i]}")
+
+if len(sys.argv) < 2:
+    print_error("[PSI]: This script only works when passed with a .psi\nMaybe you wanted to run the .psi instead of this script");
+
+with open(sys.argv[1], "r", encoding="utf-8") as f:
         for line in f:
                 command = line.strip()
                 if command == "bat {":
@@ -85,14 +104,20 @@ with open(sys.argv[1], "r") as f:
                         else:
                                 print("Missing block starting statement '{'!")
                                 break
+                elif command and command[0] == "#":
+                    pass
                 else:
                         filter_state = get_filter_state()
-                        if os.getenv("SHELL") == "/bin/zsh" and filter_state and filter_state.const == StackState.SH_ONLY:
+                        if (os.name == "posix" and os.getenv("SHELL") in sh_shells and filter_state and filter_state.const == StackState.SH_ONLY or
+                        os.name == "nt" and filter_state and filter_state.const == StackState.BATCH_ONLY):
                                 left_trail = "    " * filter_state.indent
-                                preprocessed_code.append(f"{left_trail}error_code = os.system('{command}')\n")
+                                preprocessed_code.append(f"{left_trail}error_code = os.system(f'{command}')\n")
                         elif not filter_state or filter_state and filter_state.const not in (StackState.SH_ONLY, StackState.BATCH_ONLY):
                                 preprocessed_code.append(line)
 
         code = "".join(preprocessed_code)
-        exec(code)
+        if len(sys.argv) >= 3 and sys.argv[2] == "--code":
+            print_numbered_lines(code)
+        else:
+            exec(code)
 

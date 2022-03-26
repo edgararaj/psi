@@ -1,0 +1,60 @@
+#!./build.py
+
+import os
+
+bat {
+    @echo off
+    chcp 65001>NUL
+    setlocal
+
+    #setup colors
+    for /F "tokens=1,2 delims=#" %%a in ('"prompt #$H#$E# & echo on & for %%b in (1) do rem"') do (
+      set ESC=%%b
+    )
+
+    if not which("cl"):
+        print("ERROR: 'cl' not found - please run this from the MSVC x64 native tools command prompt.")
+        exit(1)
+
+    if os.getenv("Platform") != "x64":
+        print("ERROR: Platform is not 'x64' - please run this from the MSVC x64 native tools command prompt.")
+        exit(1)
+}
+
+def compile():
+    bat {
+        cl %CommonCompilerFlags% %SrcDir%main.cpp -Fmparsa -Feparsa -link %CommonLinkerFlags%
+    }
+    sh {
+        gcc main.cpp
+    }
+    return not error_code
+
+root_dir = os.path.dirname(os.path.realpath(__file__)) 
+src_dir = f"{root_dir}/src/"
+if arg(1) == "debug":
+    build_dir=f"{root_dir}/build_debug/"
+    print("Building debug version...")
+else:
+    build_dir=f"{root_dir}/build_release/"
+
+common_compiler_flags = "-nologo -GR- -Gm- -EHa- -Oi -WX -W4 -wd4100 -wd4201 -wd4189 -wd4701 -std:c++latest -utf-8"
+if arg(1) == "debug":
+    common_compiler_flags += " -Od -Zi -DPARSA_DEBUG"
+else:
+    common_compiler_flags += " -O2"
+
+common_linker_flags = "-opt:ref -incremental:no -subsystem:console -nodefaultlib kernel32.lib libucrt.lib libvcruntime.lib libcmt.lib"
+
+if exists(build_dir):
+    if not rd(build_dir):
+        exit(1)
+
+if not exists(build_dir):
+    mkdir(build_dir)
+
+    with pushd(build_dir):
+        if not compile():
+            print("\x1b[31mFailed to compile! 😢\x1b[0m")
+        else:
+            print("\x1b[32mCompiled sucessfully\x1b[0m")
